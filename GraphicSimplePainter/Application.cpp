@@ -18,6 +18,7 @@ POINT posCursor;
 
 HPEN hPen;
 HPEN tmpPen;
+HPEN oldPen = NULL;
 
 COLORREF colorDT;
 
@@ -26,10 +27,10 @@ char flCursor = NULL;
 /*cursor_data*/
 
 HDC tmpHDC;
-HDC bufferHDC;
+HDC memHDC;
 
 HBITMAP bufferMap;
-HBITMAP oldBuffer;
+HBITMAP oldBuffMap;
 
 HWND btnPen;
 
@@ -309,18 +310,40 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 	HWND tmp = NULL;
 
+	RECT rect;
+	GetClientRect(paintList.getHWND(), &rect);
+
+	// check position
 	if (flDraw) {
 		GetCursorPos(&tmpPos);
 		tmp = WindowFromPoint(tmpPos);
 	}
 
+	// start paint
 	if (hwnd == paintList.getHWND() || tmp == paintList.getHWND())
 		WndPaintCanvasProc(paintList.getHWND(), uMsg, wParam, lParam);
 	else
-		flDraw = false;
-
+		PostAppMessage(paintList.getHWND(), WM_LBUTTONUP, NULL, NULL);
 
 	switch (uMsg){
+	case WM_CREATE: {
+			if (paintList.getHWND() != NULL && memHDC == NULL) {
+				tmpHDC = GetDC(paintList.getHWND());
+
+				memHDC = CreateCompatibleDC(tmpHDC);
+
+				RECT rect;
+				GetClientRect(paintList.getHWND(), &rect);
+				bufferMap = CreateCompatibleBitmap(tmpHDC, rect.right, rect.bottom);
+
+				oldBuffMap = (HBITMAP)SelectObject(memHDC, bufferMap);
+
+				FillRect( memHDC, &rect, WHITE_BRUSH);
+
+				ReleaseDC(paintList.getHWND(), tmpHDC);
+			}
+		}
+		break;
 	case WM_COMMAND:{
 		switch (LOWORD(wParam)) {
 			// create pen and set flCursor
@@ -369,34 +392,18 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		// start paint
 		paintListHDC = BeginPaint(paintList.getHWND(), &ps);
 
-		/*
-		// get window's client rectangle. We need this for bitmap creation.
-		RECT rcClientRectangle;
-		GetClientRect(paintList.getHWND(), &rcClientRectangle);
+		BitBlt( paintListHDC, rect.left, rect.top,
+			rect.right - rect.left, rect.bottom - rect.top,
+			memHDC, rect.left, rect.top, SRCCOPY);
 
-		// now we can create bitmap where we shall do our drawing
-		bufferMap = CreateCompatibleBitmap(paintListHDC,
-			rcClientRectangle.right - rcClientRectangle.left,
-			rcClientRectangle.bottom - rcClientRectangle.top);
-
-		bufferHDC = CreateCompatibleDC(paintListHDC);
-
-		HBITMAP oldBmp = (HBITMAP)SelectObject(bufferHDC, bufferMap);
-
-		BitBlt(paintListHDC, 0, 0, rcClientRectangle.right - rcClientRectangle.left,
-			rcClientRectangle.bottom - rcClientRectangle.top, bufferHDC, 0, 0, SRCCOPY);
-
-		SelectObject(bufferHDC, oldBmp);
-		DeleteObject(bufferHDC);
-		*/
-
-		EndPaint(hMainWnd, &ps);
+		EndPaint(paintList.getHWND(), &ps);
 		break;
 
 	// destroy wnd
 	case WM_QUIT:
 	case WM_CLOSE:
 	case WM_DESTROY:
+		DeleteDC( memHDC);
 		// send quit message
 		PostQuitMessage(EXIT_SUCCESS);
 		break;
@@ -411,7 +418,9 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 //====================================================================================================
 //====================================================================================================
 void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	HPEN oldPen;
+	RECT rect;
+
+	GetClientRect(paintList.getHWND(), &rect);
 
 	switch (uMsg)
 	{
@@ -432,16 +441,10 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 		// start draw
 		if (flDraw == true && hPen != NULL) {
-			tmpHDC = GetDC(paintList.getHWND());
+			oldPen = (HPEN) SelectObject(memHDC, hPen);
 
-			oldPen = (HPEN) SelectObject(tmpHDC, hPen);
-
-			MoveToEx(tmpHDC, posCursor.x, posCursor.y, NULL);
-			LineTo(tmpHDC, posCursor.x, posCursor.y);
-
-			SelectObject(tmpHDC, oldPen);
-
-			ReleaseDC(paintList.getHWND(), tmpHDC);
+			MoveToEx(memHDC, posCursor.x, posCursor.y, NULL);
+			LineTo(memHDC, posCursor.x, posCursor.y);
 		}
 		else
 			flDraw = false;
@@ -450,20 +453,16 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		if (flDraw == true)
 			flDraw = false;
 
+		SelectObject(memHDC, oldPen);
+
 		break;
 	case WM_MOUSEMOVE:
 		// get cursor pos
 		if (flDraw == true){
-			tmpHDC = GetDC(paintList.getHWND());
+			MoveToEx(memHDC, posCursor.x, posCursor.y, NULL);
+			LineTo(memHDC, posCursor.x = LOWORD(lParam), posCursor.y = HIWORD(lParam));
 
-			oldPen = (HPEN)SelectObject(tmpHDC, hPen);
-
-			MoveToEx(tmpHDC, posCursor.x, posCursor.y, NULL);
-			LineTo(tmpHDC, posCursor.x = LOWORD(lParam), posCursor.y = HIWORD(lParam));
-
-			SelectObject(tmpHDC, oldPen);
-
-			ReleaseDC(paintList.getHWND(), tmpHDC);
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
 		}
 		break;
 	}

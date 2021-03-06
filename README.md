@@ -1,0 +1,3 @@
+# GraphicSimplePainter
+
+# Project on WinAPI.

@@ -1,0 +1,10 @@
+﻿  Application.cpp
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(79,10): warning C4101: m_report: неиспользованная локальная переменная
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(114,10): warning C4101: m_report: неиспользованная локальная переменная
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(240,14): warning C4244: инициализация: преобразование "LONG" в "WORD", возможна потеря данных
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(241,15): warning C4244: инициализация: преобразование "LONG" в "WORD", возможна потеря данных
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(308,7): warning C4101: rw: неиспользованная локальная переменная
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(434,6): warning C4805: ==: небезопасное смешение типа "char" и типа "bool" в операции
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(450,21): warning C4805: ==: небезопасное смешение типа "char" и типа "bool" в операции
+C:\Users\teoru\source\repos\GraphicSimplePainter\GraphicSimplePainter\Application.cpp(456,21): warning C4805: ==: небезопасное смешение типа "char" и типа "bool" в операции
+  GraphicSimplePainter.vcxproj -> C:\Users\teoru\source\repos\GraphicSimplePainter\Debug\GraphicSimplePainter.exe

@@ -21,6 +21,9 @@
     <ClCompile Include="Application.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="Line.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -32,6 +35,9 @@
     <ClInclude Include="Matrix.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="Line.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GraphicSimplePainter.rc">
@@ -39,13 +45,16 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="settings-256.ico">
-      <Filter>Файлы ресурсов</Filter>
-    </Image>
     <Image Include="btnPen.bmp">
       <Filter>Файлы ресурсов</Filter>
     </Image>
     <Image Include="eraserBtn.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="bitmap3.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="settings-256.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
   </ItemGroup>

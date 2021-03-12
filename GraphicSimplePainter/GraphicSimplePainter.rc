@@ -64,6 +64,8 @@ IDB_BITMAP1             BITMAP                  "btnPen.bmp"
 
 IDB_BITMAP2             BITMAP                  "eraserBtn.bmp"
 
+IDB_BITMAP3             BITMAP                  "bitmap3.bmp"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //

@@ -5,6 +5,14 @@
 //====================================================================================================
 #define PEN 0x01
 #define ERASER 0x02
+#define MOVE 0x03
+#define ROTATE 0x04
+#define SCALE 0x05
+#define LINE 0x06
+#define WND_LINE 0x07
+
+Line wuLine;
+Line wndLine;
 //====================================================================================================
 //====================================================================================================
 HCURSOR cursorPen = NULL;
@@ -15,6 +23,7 @@ POINT tmpPos;
 
 /*cursor_data*/
 POINT posCursor;
+POINT centerTmp;
 
 HPEN hPen;
 HPEN tmpPen;
@@ -23,17 +32,29 @@ HPEN oldPen = NULL;
 COLORREF colorDT;
 
 char flDraw = NULL;
+char flLine = NULL;
 char flCursor = NULL;
 /*cursor_data*/
 
+	// points for line
+POINT str = { 0, 0 };
+POINT end = { 0, 0 };
+POINT tmpDT = { 0, 0 };
+// set default color line
+COLORREF colorLine = RGB(0, 0, 0);
+
+
+// device context for prog
 HDC tmpHDC;
 HDC memHDC;
 
+// buffer data
 HBITMAP bufferMap;
 HBITMAP oldBuffMap;
 
 HWND btnPen;
 
+// GUI
 Canvas paintList;
 Canvas upMenu;
 Canvas leftMenu;
@@ -41,6 +62,11 @@ Canvas bottomMenu;
 
 Button penBtn;
 Button eraseBtn;
+Button moveBtn;
+Button rotateBtn;
+Button scaleBtn;
+Button lineBtn;
+Button wndLineBtn;
 
 Button fileBtn;
 Button editBtn;
@@ -164,8 +190,10 @@ int App::Init() {
 	int centerWidth;
 	int centerHeight;
 
+	// register main wnd
 	RegisterClassW(&wcMain);
 
+	// craete window
 	hMainWnd = CreateWindow(
 		wcMain.lpszClassName,
 		wcMain.lpszClassName,
@@ -207,21 +235,37 @@ int App::Init() {
 	// create rgb menu
 	bottomMenu.createWnd(hMainWnd, hInstance, NULL, 340, 150, 150);
 
+	HWND tmpMenu = leftMenu.getHWND();
+
 	/*BUTTON*/
 	// create pen button
-	penBtn.createWnd(leftMenu.getHWND(), hInstance, 2, 2, 30, 30, L"", 10, IDB_BITMAP1);
-	
-	eraseBtn.createWnd(leftMenu.getHWND(), hInstance, 34, 2, 30, 30, L"", 20, IDB_BITMAP2);
-	
-	// create file btn
-	fileBtn.createWnd(upMenu.getHWND(), hInstance, 3, 3, 30, 60, L"File", 2, NULL);
-	// create edit btn
-	editBtn.createWnd(upMenu.getHWND(), hInstance, 66, 3, 30, 60, L"Edit", 3, NULL);
-	// create view btn
-	viewBtn.createWnd(upMenu.getHWND(), hInstance, 129, 3, 30, 60, L"View", 4, NULL);
-	// create image btn
-	imageBtn.createWnd(upMenu.getHWND(), hInstance, 192, 3, 30, 60, L"Image", 5, NULL);
+	penBtn.createWnd( tmpMenu, hInstance, 2, 2, 30, 30, L"", 10, IDB_BITMAP1);
+	// create erase button
+	eraseBtn.createWnd( tmpMenu, hInstance, 34, 2, 30, 30, L"", 20, IDB_BITMAP2);
+	// create move btn
+	moveBtn.createWnd( tmpMenu, hInstance, 2, 34, 30, 30, L"", 30, IDB_BITMAP3);
+	// create rotate btn
+	rotateBtn.createWnd( tmpMenu, hInstance, 34, 34, 30, 30, L"Rot", 40, NULL);
+	// create scale btn
+	scaleBtn.createWnd( tmpMenu, hInstance, 2, 66, 30, 30, L"Scl", 50, NULL);
+	// create line btn
+	lineBtn.createWnd( tmpMenu, hInstance, 2, 98, 30, 62, L"WuLine", 60, NULL);
+	// craete windows line btn
+	wndLineBtn.createWnd( tmpMenu, hInstance, 2, 130, 30, 62, L"WndLine", 70, NULL);
 
+	tmpMenu = upMenu.getHWND();
+	
+	/* MENU_BUTTON */
+	// create file btn
+	fileBtn.createWnd( tmpMenu, hInstance, 3, 3, 30, 60, L"File", 1, NULL);
+	// create edit btn
+	editBtn.createWnd( tmpMenu, hInstance, 66, 3, 30, 60, L"Edit", 2, NULL);
+	// create view btn
+	viewBtn.createWnd( tmpMenu, hInstance, 129, 3, 30, 60, L"View", 3, NULL);
+	// create image btn
+	imageBtn.createWnd( tmpMenu, hInstance, 192, 3, 30, 60, L"Image", 4, NULL);
+
+	/*CURSOR_ZONE*/
 	cursorPen = LoadCursor( hInstance, MAKEINTRESOURCE(IDC_CURSOR2));
 	// cursorEraser = LoadCursor( hInstance, MAKEINTRESOURCE(IDC_ICON2));
 	cursorDef = LoadCursor(NULL, IDC_ARROW);
@@ -287,6 +331,7 @@ void App::reUpFunc(LPARAM lParam) {
 		// SetWindowPos(upMenu.getHWND(), NULL, NULL, NULL, , upMenu.getHeight(), SWP_NOZORDER);
 		// MoveWindow(upMenu.getHWND(), NULL, NULL, nWidth, upMenu.getHeight(), true);
 		
+		// check position and move if that needed
 		if(nHeight - bottomMenu.getHeight() > 280)
 			MoveWindow(bottomMenu.getHWND(), NULL, nHeight - bottomMenu.getHeight(), 
 					   bottomMenu.getWidth(), bottomMenu.getHeight(), true);
@@ -314,19 +359,29 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	GetClientRect(paintList.getHWND(), &rect);
 
 	// check position
-	if (flDraw) {
+	if (flDraw || flCursor == LINE) {
 		GetCursorPos(&tmpPos);
 		tmp = WindowFromPoint(tmpPos);
-	}
 
+		// set flags on false
+		if (tmp != paintList.getHWND()) {
+			flDraw = false;
+			
+			if (flLine == true) {
+				flLine = false;
+
+				str = { 0, 0 };
+				end = { 0, 0 };
+			}
+		}
+	}
 	// start paint
-	if (hwnd == paintList.getHWND() || tmp == paintList.getHWND())
+	if (hwnd == paintList.getHWND())
 		WndPaintCanvasProc(paintList.getHWND(), uMsg, wParam, lParam);
-	else
-		PostAppMessage(paintList.getHWND(), WM_LBUTTONUP, NULL, NULL);
 
 	switch (uMsg){
 	case WM_CREATE: {
+			// create memHDC for drawing and "double buffer"
 			if (paintList.getHWND() != NULL && memHDC == NULL) {
 				tmpHDC = GetDC(paintList.getHWND());
 
@@ -356,11 +411,6 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 					// send message about changing cursor
 					PostMessage(paintList.getHWND(), WM_SETCURSOR, NULL, NULL);
 				}
-				else {
-					DeleteObject(hPen);
-					flCursor = NULL;
-					hPen = NULL;
-				}
 				break;
 
 			// create eraser
@@ -372,18 +422,62 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 					PostMessage(paintList.getHWND(), WM_SETCURSOR, NULL, NULL);
 				}
-				else {
+				break;
+			// move
+			case 30:
+				if (flCursor != MOVE)
+					flCursor = MOVE;
+
+				// set data in coordinate matrix
+				posPnt.matrix[2][0] = 1.0;
+
+				break;
+			// rotate
+			case 40:
+				if (flCursor != ROTATE)
+					flCursor = ROTATE;
+
+				// set data in coordinate matrix
+				posPnt.matrix[2][0] = 1.0;
+
+				break;
+			// scale
+			case 50:
+				if (flCursor != SCALE)
+					flCursor = SCALE;
+
+				// set data in coordinate matrix
+				posPnt.matrix[2][0] = 1.0;
+
+				break;
+			// draw wu line
+			case 60:
+				if (flCursor != LINE)
+					flCursor = LINE;
+
+				break;
+			// draw windows line
+			case 70:
+				if (flCursor != WND_LINE) {
+					flCursor = WND_LINE;
+				
+					hPen = CreatePen(PS_SOLID, 2, RGB(128, 0, 0));
+				}
+				break;
+			default:
+				if (hPen != NULL) {
 					DeleteObject(hPen);
 					flCursor = NULL;
 					hPen = NULL;
 				}
-				break;
 			}
+
 		}
 		break;
 
 	// reaction on resizing wnd
 	case WM_SIZE:
+		// update interface
 		reUpFunc(lParam);
 		break;
 
@@ -392,10 +486,12 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		// start paint
 		paintListHDC = BeginPaint(paintList.getHWND(), &ps);
 
+		// copy memory into main hdc
 		BitBlt( paintListHDC, rect.left, rect.top,
 			rect.right - rect.left, rect.bottom - rect.top,
 			memHDC, rect.left, rect.top, SRCCOPY);
 
+		// end paint
 		EndPaint(paintList.getHWND(), &ps);
 		break;
 
@@ -420,11 +516,13 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	RECT rect;
 
+	// get client size in rectangle
 	GetClientRect(paintList.getHWND(), &rect);
 
 	switch (uMsg)
 	{
 	case WM_SETCURSOR:
+		// set new pen
 		if (flCursor == PEN && cursorPen != NULL)
 			SetCursor(cursorPen);
 		else if(flCursor == ERASER && cursorEraser != NULL)
@@ -437,32 +535,132 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		posCursor.x = LOWORD(lParam);
 		posCursor.y = HIWORD(lParam);
 
-		flDraw = true;
+		if(flDraw == false && (flCursor == PEN || flCursor == ERASER || flCursor == WND_LINE))
+			flDraw = true;
 
 		// start draw
-		if (flDraw == true && hPen != NULL) {
+		if (flDraw == true && (flCursor == PEN || flCursor == ERASER)) {
+			// set new pen and save old pen
 			oldPen = (HPEN) SelectObject(memHDC, hPen);
 
+			// update pixel and draw
 			MoveToEx(memHDC, posCursor.x, posCursor.y, NULL);
 			LineTo(memHDC, posCursor.x, posCursor.y);
+
+			// send message WM_PAINT
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+			break;
 		}
-		else
-			flDraw = false;
+
+		// set flag line as true
+		flLine = true;
+
+		str.x = posCursor.x;
+		str.y = posCursor.y;
+		end = str;
+
+		// create classic line
+		if (flCursor == WND_LINE) {
+			MoveToEx( memHDC, posCursor.x, posCursor.y, NULL);
+			// draw line
+			wndLine.wndLine(memHDC, str, end, colorLine);
+
+			// send message WM_PAINT
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+			break;
+		}
+
+		// create Line
+		if (flCursor == LINE) {
+			// draw line
+			wuLine.wuLine( memHDC, str, end, colorLine);
+			// send message WM_PAINT
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+			break;
+		}
+
+		// move command
+		if (flCursor == MOVE || flCursor == SCALE || flCursor == ROTATE) {
+			flDraw = true;
+
+			// save new coord
+			tmpDT.x = posCursor.x;
+			tmpDT.y = posCursor.y;
+		}
 		break;
 	case WM_LBUTTONUP:
+		// stop drawing
 		if (flDraw == true)
 			flDraw = false;
 
+		// stop draw lines
+		if (flLine == true) {
+			flLine = false;
+		
+			str = { 0, 0};
+			end = { 0, 0};
+		}
+
+		// restore old object
 		SelectObject(memHDC, oldPen);
 
 		break;
 	case WM_MOUSEMOVE:
 		// get cursor pos
-		if (flDraw == true){
+		if (flDraw == true && (flCursor == PEN || flCursor == ERASER)){
+			// update current pixel
 			MoveToEx(memHDC, posCursor.x, posCursor.y, NULL);
+			// draw line
 			LineTo(memHDC, posCursor.x = LOWORD(lParam), posCursor.y = HIWORD(lParam));
 
+			// send message WM_PAINT
 			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+			break;
+		}
+
+		end.x = LOWORD(lParam);
+		end.y = HIWORD(lParam);
+
+		// draw classic windows line
+		if (flDraw == true && flCursor == WND_LINE) {
+			// update pixel and draw
+			wndLine.deleteLine(memHDC, 0x02);
+			// update current pixel
+			MoveToEx(memHDC, posCursor.x, posCursor.y, NULL);
+			// draw line
+			wndLine.wndLine(memHDC, str, end, colorLine);
+
+			// send message WM_PAINT
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+			break;
+		}
+
+		// create Line
+		if (flCursor == LINE && flLine == true) {
+			// delete line
+			wuLine.deleteLine( memHDC);
+			wuLine.wuLine( memHDC, str, end, colorLine);
+			// send message WM_PAINT
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+			break;
+		}
+
+		// transform line
+		if ((flCursor == MOVE || flCursor == SCALE || flCursor == ROTATE) && flDraw == true) {
+			// calc new point
+			wuLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
+			wuLine.wuLine(memHDC, wuLine.getStart(), wuLine.getEnd(), colorLine);
+
+			// calc new point
+			wndLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
+			wndLine.wndLine(memHDC, wndLine.getStart(), wndLine.getEnd(), colorLine);
+
+			// send message WM_PAINT
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
+
+			// save new coord
+			tmpDT.x = LOWORD(lParam);
+			tmpDT.y = HIWORD(lParam);
 		}
 		break;
 	}

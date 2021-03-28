@@ -10,9 +10,16 @@
 #define SCALE 0x05
 #define LINE 0x06
 #define WND_LINE 0x07
+#define TRIANGLE 0x10
 
+// lines
 Line wuLine;
 Line wndLine;
+
+// figures
+// 1. triangle
+Triangle trFigure;
+int numPnt = 0;
 //====================================================================================================
 //====================================================================================================
 HCURSOR cursorPen = NULL;
@@ -34,6 +41,7 @@ COLORREF colorDT;
 char flDraw = NULL;
 char flLine = NULL;
 char flCursor = NULL;
+char flFigure = NULL;
 /*cursor_data*/
 
 	// points for line
@@ -67,6 +75,7 @@ Button rotateBtn;
 Button scaleBtn;
 Button lineBtn;
 Button wndLineBtn;
+Button triangleBtn;
 
 Button fileBtn;
 Button editBtn;
@@ -252,6 +261,8 @@ int App::Init() {
 	lineBtn.createWnd( tmpMenu, hInstance, 2, 98, 30, 62, L"WuLine", 60, NULL);
 	// craete windows line btn
 	wndLineBtn.createWnd( tmpMenu, hInstance, 2, 130, 30, 62, L"WndLine", 70, NULL);
+	// create triangle btn
+	triangleBtn.createWnd( tmpMenu, hInstance, 2, 162, 30, 30, L"/\\", 80, NULL);
 
 	tmpMenu = upMenu.getHWND();
 	
@@ -427,6 +438,8 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 			case 30:
 				if (flCursor != MOVE)
 					flCursor = MOVE;
+				else
+					flCursor &= ~MOVE;
 
 				// set data in coordinate matrix
 				posPnt.matrix[2][0] = 1.0;
@@ -436,6 +449,8 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 			case 40:
 				if (flCursor != ROTATE)
 					flCursor = ROTATE;
+				else
+					flCursor &= ~ROTATE;
 
 				// set data in coordinate matrix
 				posPnt.matrix[2][0] = 1.0;
@@ -445,6 +460,8 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 			case 50:
 				if (flCursor != SCALE)
 					flCursor = SCALE;
+				else
+					flCursor = ~SCALE;
 
 				// set data in coordinate matrix
 				posPnt.matrix[2][0] = 1.0;
@@ -452,17 +469,31 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 				break;
 			// draw wu line
 			case 60:
-				if (flCursor != LINE)
+				if (flCursor != LINE) {
 					flCursor = LINE;
 
+					flFigure = NULL;
+				}
+				else
+					flCursor = NULL;
 				break;
 			// draw windows line
 			case 70:
 				if (flCursor != WND_LINE) {
 					flCursor = WND_LINE;
+					flFigure = NULL;
 				
 					hPen = CreatePen(PS_SOLID, 2, RGB(128, 0, 0));
 				}
+				break;
+			case 80:
+				if ((flFigure & TRIANGLE) != true) {
+					flFigure = TRIANGLE;
+
+					hPen = CreatePen(PS_SOLID, 2, RGB(128, 0, 0));
+				}
+				else 
+					flCursor = NULL;
 				break;
 			default:
 				if (hPen != NULL) {
@@ -587,6 +618,14 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			tmpDT.x = posCursor.x;
 			tmpDT.y = posCursor.y;
 		}
+
+		// create triangle
+		if (flFigure == TRIANGLE && flDraw == false) {
+			// save position
+			trFigure.savePntPos( posCursor, numPnt);
+
+			numPnt++;
+		}
 		break;
 	case WM_LBUTTONUP:
 		// stop drawing
@@ -599,6 +638,14 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		
 			str = { 0, 0};
 			end = { 0, 0};
+		}
+
+		// if now three positions
+		if (numPnt == 3) {
+			numPnt = 0;
+			trFigure.displayTriangle(memHDC, colorLine);
+
+			InvalidateRect(paintList.getHWND(), NULL, FALSE);
 		}
 
 		// restore old object
@@ -646,14 +693,20 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		}
 
 		// transform line
-		if ((flCursor == MOVE || flCursor == SCALE || flCursor == ROTATE) && flDraw == true) {
+		if (((flCursor & MOVE) || (flCursor & SCALE) || (flCursor & ROTATE)) && flDraw == true) {
 			// calc new point
-			wuLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
-			wuLine.wuLine(memHDC, wuLine.getStart(), wuLine.getEnd(), colorLine);
+			if (flFigure == NULL) {
+				wuLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
+				wuLine.wuLine(memHDC, colorLine);
+			}
+			else if (flFigure == TRIANGLE) {
+				trFigure.transformTrFig(lParam, flCursor, memHDC, tmpDT);
+				trFigure.displayTriangle(memHDC, colorLine);
+			}
 
-			// calc new point
-			wndLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
-			wndLine.wndLine(memHDC, wndLine.getStart(), wndLine.getEnd(), colorLine);
+			// calc new point fow windows line
+			// wndLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
+			// wndLine.wndLine(memHDC, colorLine);
 
 			// send message WM_PAINT
 			InvalidateRect(paintList.getHWND(), NULL, FALSE);

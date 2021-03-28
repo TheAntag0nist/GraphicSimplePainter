@@ -8,6 +8,10 @@ private:
 public:
 	T** matrix;
 
+	Matrix() {
+		this->Matrix(1, 1);
+	}
+
 	// constructor
 	Matrix(int lin, int col) {
 		// save data
@@ -68,7 +72,13 @@ public:
 		for (int i = 0; i < this->lin; ++i)
 			for (int j = 0; j < this->col; ++j) {
 				this->matrix[i][j] = (T)NULL;
-			
+			}
+	}
+	void oneM() {
+		for (int i = 0; i < this->lin; ++i)
+			for (int j = 0; j < this->col; ++j) {
+				this->matrix[i][j] = (T)NULL;
+
 				if (j == i && lin == col)
 					matrix[i][j] = (T)1.0;
 			}

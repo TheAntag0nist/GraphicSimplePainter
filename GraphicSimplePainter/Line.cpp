@@ -2,7 +2,7 @@
 
 // overload func
 // draw point
-void Line::drawPnt( HDC &memHDC, float gradient, POINT pnt, float intense, COLORREF color) {
+void Line::drawPnt( HDC& memHDC, float gradient, POINT pnt, float intense, COLORREF color) {
 	COLORREF colorTmp = color;
 	float inten = 1 - intense;
 	int add = ((255 - static_cast<int>(color & 0x000000ff)) / 10);
@@ -20,7 +20,7 @@ void Line::drawPnt( HDC &memHDC, float gradient, POINT pnt, float intense, COLOR
 
 	SetPixel( memHDC, pnt.x, pnt.y, color);
 }
-void Line::drawPnt(HDC &memHDC, float gradient, int x, int y, float intense, COLORREF color) {
+void Line::drawPnt(HDC& memHDC, float gradient, int x, int y, float intense, COLORREF color) {
 	COLORREF colorTmp = color;
 	float inten = 1 - intense;
 	int add = ((255 - static_cast<int>(color & 0x000000ff)) / 10);
@@ -39,7 +39,7 @@ void Line::drawPnt(HDC &memHDC, float gradient, int x, int y, float intense, COL
 }
 
 // Brezenhem line
-int Line::brLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine) {
+int Line::brLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 	// check line points
 	this->startPoint = startP;
 	this->endPoint = endP;
@@ -47,6 +47,7 @@ int Line::brLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 
 	if (startP.x == endP.x && startP.y == endP.y) {
 		SetPixel(memHDC, startP.x, startP.y, colorLine);
+		return NULL;
 	}
 
 	float deltaX = abs((static_cast<float>(endP.x) - startP.x));
@@ -81,7 +82,17 @@ int Line::brLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 }
 
 // Wu Line
-int Line::wuLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine) {
+int Line::wuLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
+	// save angle
+	if (createFl == false) {
+		float gipot = abs(sqrt((endPoint.y - startPoint.y) ^ 2 + (endPoint.x - startPoint.x) ^ 2));
+
+		cosA = abs((endPoint.x - startPoint.x) / gipot);
+		sinA = (float)1 - cosA * cosA;
+
+		createFl = true;
+	}
+
 	// check line points
 	this->startPoint = startP;
 	this->endPoint = endP;
@@ -127,6 +138,9 @@ int Line::wuLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 
 	return NULL;
 }
+int Line::wuLine(HDC& memHDC, COLORREF colorLine) {
+	return wuLine( memHDC, this->getStart(), this->getEnd(), colorLine);
+}
 
 // windows Line
 int Line::wndLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
@@ -153,42 +167,36 @@ int Line::wndLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 }
 
 // calc new POINTS
-void Line::calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT) {
-	// delete line
-	this->deleteLine(memHDC, typeLine);
-
-	//====================================
+void Line::calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT, char flFigure, float xCenter, float yCenter) {
 	POINT deltaPos;
+	float scaleCoeff = static_cast<float>(110) / 100;
+	double dX;
+	double dY;
 
-	// calc new positions
-	POINT newStr = { 0,0 };
-	POINT newEnd = { 0,0 };
+	if (flFigure == 0x06) {
+		dX = (static_cast<double>(this->getEnd().x) + this->getStart().x) / 2;
+		dY = (static_cast<double>(this->getEnd().y) + this->getStart().y) / 2;
+	}
+	else {
+		dX = xCenter;
+		dY = yCenter;
+	}
 
-	// calc center
-	POINT oldCenter = { 0,0 };
-	POINT newCenter = { 0,0 };
-
-	POINT& tmpStr = this->startPoint;
-	POINT& tmpEnd = this->endPoint;
+	POINT& newStr = this->startPoint;
+	POINT& newEnd = this->endPoint;
 
 	// rotation parametrs
-	float cosFi = 0.996194;
-	float sinFi = 0.087155;
+	// 1 degree or not 1
+	float cosFi = 0.9998476952;
+	float sinFi = 0.01745240644;
 
-	oldCenter = this->getCenter();
-
+	transformMove.oneM();
+	transformRotate.oneM();
+	transformScale.oneM();
 	//====================================
-	// calc new str
-	newStr.x -= oldCenter.x;
-	newStr.y -= oldCenter.y;
-
-	// calc new end
-	newEnd.x -= oldCenter.x;
-	newEnd.y -= oldCenter.y;
+	// delete line
+	this->deleteLine(memHDC, typeLine);
 	//====================================
-
-	resPnt_1.zeroM();
-
 	// delta from start
 	deltaPos.x = LOWORD(lParam) - tmpDT.x;
 	deltaPos.y = HIWORD(lParam) - tmpDT.y;
@@ -196,26 +204,20 @@ void Line::calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT) 
 	// set data in transform matrix
 	if (flCursor == MOVE) {
 		// transform matrix
-		transformMatr.zeroM();
-		transformMatr.matrix[0][2] = deltaPos.x;
-		transformMatr.matrix[1][2] = deltaPos.y;
+		transformMove.matrix[0][2] = deltaPos.x;
+		transformMove.matrix[1][2] = deltaPos.y;
 	}
 	else if (flCursor == SCALE) {
-		transformMatr.zeroM();
-
 		if (deltaPos.x > 0) {
-			transformMatr.matrix[0][0] = 1.05;
-			transformMatr.matrix[1][1] = 1.05;
+			transformScale.matrix[0][0] = scaleCoeff;
+			transformScale.matrix[1][1] = transformScale.matrix[0][0];
 		}
 		else {
-			transformMatr.matrix[0][0] = 0.95;
-			transformMatr.matrix[1][1] = 0.95;
+			transformScale.matrix[0][0] = 1 / scaleCoeff;
+			transformScale.matrix[1][1] = transformScale.matrix[0][0];
 		}
 	}
 	else if (flCursor == ROTATE) {
-		// transform matrix
-		transformMatr.zeroM();
-
 		// 5 grad
 		cosFi = 0.996194;
 
@@ -224,52 +226,64 @@ void Line::calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT) 
 		else
 			sinFi = -(0.087155);
 
-		transformMatr.matrix[0][0] = cosFi;
-		transformMatr.matrix[0][1] = -sinFi;
-		transformMatr.matrix[1][0] = sinFi;
-		transformMatr.matrix[1][1] = cosFi;
+		transformRotate.matrix[0][0] = cosFi;
+		transformRotate.matrix[0][1] = -sinFi;
+		transformRotate.matrix[1][0] = sinFi;
+		transformRotate.matrix[1][1] = cosFi;
 	}
 
 	//--------------------------------------------------
-	// save point str
-	posPnt.matrix[0][0] = tmpStr.x;
-	posPnt.matrix[1][0] = tmpStr.y;
-	posPnt.matrix[2][0] = 1.0;
-
-	// calc new pos
-	transformMatr.multi(posPnt, resPnt_1);
-
-	tmpStr.x = round(resPnt_1.matrix[0][0] - 0.5);
-	tmpStr.y = round(resPnt_1.matrix[1][0] - 0.5);
-
-	this->setStart(tmpStr);
+	// START POINT
+	transformPoint(flCursor, newStr, dX, dY);
 	//--------------------------------------------------
+	// END POINT
+	transformPoint(flCursor, newEnd, dX, dY);
+}
+
+// calc new POINT_
+void Line::transformPoint(char flCursor, POINT& pnt, double dX, double dY) {
+	Matrix<float>* pointerM;
+
+	// zero all matrix
+	posPnt.zeroM();
 	resPnt_1.zeroM();
+	resPnt_2.zeroM();
+
+	transformTmp.zeroM();
+	transformTmp_1.zeroM();
+	transformRes.zeroM();
+
+	transformMatr.zeroM();
 
 	// save point str
-	posPnt.matrix[0][0] = tmpEnd.x;
-	posPnt.matrix[1][0] = tmpEnd.y;
+	posPnt.matrix[0][0] = pnt.x;
+	posPnt.matrix[1][0] = pnt.y;
 	posPnt.matrix[2][0] = 1.0;
 
-	// calc new pos
-	transformMatr.multi(posPnt, resPnt_1);
-
-	tmpEnd.x = round(resPnt_1.matrix[0][0] - 0.5);
-	tmpEnd.y = round(resPnt_1.matrix[1][0] - 0.5);
-
-	this->setEnd(tmpEnd);
-
-	// if not move
+	// change position
 	if (flCursor == SCALE || flCursor == ROTATE) {
-		newCenter = this->getCenter();
-
-		newCenter.x -= oldCenter.x;
-		newCenter.y -= oldCenter.y;
-
-		tmpStr.x -= newCenter.x;
-		tmpStr.y -= newCenter.y;
-
-		tmpEnd.x -= newCenter.x;
-		tmpEnd.y -= newCenter.y;
+		transformMove.matrix[0][2] = -dX;
+		transformMove.matrix[1][2] = -dY;
 	}
+
+	// transform
+	transformMove.multi(posPnt, resPnt_1);
+	transformRotate.multi(resPnt_1, resPnt_2);
+	resPnt_1.zeroM();
+	transformScale.multi(resPnt_2, resPnt_1);
+	pointerM = &resPnt_1;
+
+	// restore center
+	if (flCursor == SCALE || flCursor == ROTATE) {
+		transformMove.matrix[0][2] = dX;
+		transformMove.matrix[1][2] = dY;
+
+		resPnt_2.zeroM();
+		transformMove.multi(resPnt_1, resPnt_2);
+		pointerM = &resPnt_2;
+	}
+
+	// new pnt
+	pnt.x = static_cast<long>(round(pointerM->matrix[0][0]));
+	pnt.y = static_cast<long>(round(pointerM->matrix[1][0]));
 }

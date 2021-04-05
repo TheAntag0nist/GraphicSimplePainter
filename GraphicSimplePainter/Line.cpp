@@ -80,6 +80,9 @@ int Line::brLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 
 	return NULL;
 }
+int Line::brLine(HDC& memHDC, COLORREF colorLine) {
+	return brLine( memHDC, this->getStart(), this->getEnd(), colorLine);
+}
 
 // Wu Line
 int Line::wuLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
@@ -144,6 +147,9 @@ int Line::wuLine(HDC& memHDC, COLORREF colorLine) {
 
 // windows Line
 int Line::wndLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
+	// delete line
+	this->deleteLine(memHDC);
+
 	// check line points
 	this->startPoint = startP;
 	this->endPoint = endP;
@@ -165,6 +171,9 @@ int Line::wndLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine) {
 
 	return NULL;
 }
+int Line::wndLine(HDC& memHDC, COLORREF colorLine) {
+	return wndLine(memHDC, this->getStart(), this->getEnd(), colorLine);
+}
 
 // calc new POINTS
 void Line::calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT, char flFigure, float xCenter, float yCenter) {
@@ -184,7 +193,7 @@ void Line::calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT, 
 
 	POINT& newStr = this->startPoint;
 	POINT& newEnd = this->endPoint;
-
+	
 	// rotation parametrs
 	// 1 degree or not 1
 	float cosFi = 0.9998476952;

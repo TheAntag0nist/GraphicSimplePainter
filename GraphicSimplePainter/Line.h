@@ -140,11 +140,14 @@ public:
 
 	// func that draws lines
 	int wuLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine);
-	int wuLine(HDC& memHDC, COLORREF colorLine);
+	int wuLine(HDC &memHDC, COLORREF colorLine);
 
 	// other functions
 	int brLine(HDC &memHDC, POINT startP, POINT endP, COLORREF colorLine);
+	int brLine(HDC& memHDC, COLORREF colorLine);
+
 	int wndLine(HDC& memHDC, POINT startP, POINT endP, COLORREF colorLine);
+	int wndLine(HDC& memHDC, COLORREF colorLine);
 
 	// transform position
 	void calcNewPoint(LPARAM lParam, char flCursor, HDC& memHDC, POINT tmpDT, char flFigure = 0x06, float xCenter = NULL, float yCenter = NULL);

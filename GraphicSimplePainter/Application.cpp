@@ -19,6 +19,12 @@ Line wndLine;
 // figures
 // 1. triangle
 Triangle trFigure;
+LPARAM tmp_lParam;
+HANDLE threadTr = NULL;
+POINT tmpDt_thread;
+
+char resFlag = false;
+char flThread = false;
 int numPnt = 0;
 //====================================================================================================
 //====================================================================================================
@@ -390,6 +396,9 @@ LRESULT CALLBACK App::classWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	if (hwnd == paintList.getHWND())
 		WndPaintCanvasProc(paintList.getHWND(), uMsg, wParam, lParam);
 
+	// send message WM_PAINT
+	InvalidateRect(paintList.getHWND(), NULL, FALSE);
+
 	switch (uMsg){
 	case WM_CREATE: {
 			// create memHDC for drawing and "double buffer"
@@ -617,6 +626,10 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			// save new coord
 			tmpDT.x = posCursor.x;
 			tmpDT.y = posCursor.y;
+
+			// save new coord
+			tmpDt_thread.x = LOWORD(tmp_lParam);
+			tmpDt_thread.y = HIWORD(tmp_lParam);
 		}
 
 		// create triangle
@@ -698,18 +711,35 @@ void WndPaintCanvasProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 			if (flFigure == NULL) {
 				wuLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
 				wuLine.wuLine(memHDC, colorLine);
+
+				// calc new point fow windows line
+				// wndLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
+				// wndLine.wndLine(memHDC, colorLine);
+
+				// send message WM_PAINT
+				InvalidateRect(paintList.getHWND(), NULL, FALSE);
 			}
 			else if (flFigure == TRIANGLE) {
+				//tmp_lParam = lParam;
+
+				//if (flThread == false) {
+					//threadTr = CreateThread(NULL, NULL, TriangleThread, NULL, NULL, NULL);
+					//flThread = true;
+				//}
+
+				if (trFigure.getFl())
+					trFigure.fillTriangle(memHDC, RGB(255, 255, 255), RGB(255, 255, 255));
+				else
+					trFigure.setFl(true);
+
 				trFigure.transformTrFig(lParam, flCursor, memHDC, tmpDT);
 				trFigure.displayTriangle(memHDC, colorLine);
+
+				flThread = false;
+
+				// send message WM_PAINT
+				InvalidateRect(paintList.getHWND(), NULL, FALSE);
 			}
-
-			// calc new point fow windows line
-			// wndLine.calcNewPoint(lParam, flCursor, memHDC, tmpDT);
-			// wndLine.wndLine(memHDC, colorLine);
-
-			// send message WM_PAINT
-			InvalidateRect(paintList.getHWND(), NULL, FALSE);
 
 			// save new coord
 			tmpDT.x = LOWORD(lParam);

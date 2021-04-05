@@ -149,6 +149,7 @@
     <ClInclude Include="Line.h" />
     <ClInclude Include="Matrix.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="Stack.h" />
     <ClInclude Include="Triangle.h" />
   </ItemGroup>
   <ItemGroup>
